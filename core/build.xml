@@ -1,0 +1,34 @@
+<project name="NivenWeb4App" default="dist-core" basedir=".">
+	<description>
+		Niven production for simple web-service solution
+	</description>
+	<property name="src" location="src"/>
+	<property name="build" location="build"/>
+	<property name="lib" location="lib"/>
+	
+	<target name="init-core">
+		<tstamp/>
+		<mkdir dir="${build}" />
+	</target>
+	
+	<target name="compile-core" depends="init-core">
+		<javac includeantruntime="false" destdir="${build}">
+			<src path="${src}" />
+			<classpath>
+				<fileset dir="${lib}">
+					<include name="**/*.jar"/>
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+	
+	<target name="dist-core" depends="compile-core">
+		<jar destfile="NivenWeb4App.jar"
+			basedir="${build}"
+		/>
+	</target>
+	
+	<target name="clean">
+		<delete dir="${build}" />
+	</target>
+</project>

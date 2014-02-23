@@ -1,0 +1,52 @@
+<project name="NivenWeb4App app" default="run" basedir=".">
+	<description>
+		Niven production for simple web-service solution
+	</description>
+	<property name="src" location="app"/>
+	<property name="build" location="build"/>
+	<property name="lib" location="lib"/>
+	<property name="core" location="core"/>
+	<property name="corelib" location="core/lib"/>
+	
+	<target name="init">
+		<tstamp/>
+		<ant dir="${core}"
+			useNativeBasedir="false"
+			inheritAll="false"/>
+		<mkdir dir="${build}" />
+	</target>
+	
+	<target name="build" depends="init">
+		<javac includeantruntime="false" destdir="${build}">
+			<src path="${src}" />
+			<classpath>
+				<fileset dir="${lib}">
+					<include name="**/*.jar"/>
+				</fileset>
+				<fileset dir="${corelib}">
+					<include name="**/*.jar"/>
+				</fileset>
+				<pathelement location="${core}/NivenWeb4App.jar"/>
+			</classpath>
+		</javac>
+	</target>
+	
+	<target name="run" depends="build">
+		<java fork="true" classname="cn.niven.web4app.Main">
+			<classpath>
+				<fileset dir="${lib}">
+					<include name="**/*.jar"/>
+				</fileset>
+				<fileset dir="${corelib}">
+					<include name="**/*.jar"/>
+				</fileset>
+				<pathelement location="${core}/NivenWeb4App.jar"/>
+           		<path location="${build}"/>
+			</classpath>
+		</java>
+	</target>
+	
+	<target name="clean">
+		<delete dir="${build}" />
+	</target>
+</project>
