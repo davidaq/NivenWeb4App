@@ -5,5 +5,6 @@ public class TestBase {
 
 	@Action
 	public String hello() {
+		return "hi";
 	}
 }
