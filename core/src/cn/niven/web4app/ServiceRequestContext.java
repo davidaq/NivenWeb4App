@@ -17,6 +17,8 @@ public class ServiceRequestContext {
 	HttpServletRequest servletRequest;
 	Gson gson = new Gson();
 
+	HashMap<String, String> extraHeader;
+
 	public HttpServletRequest getServletRequest() {
 		return servletRequest;
 	}
@@ -24,8 +26,11 @@ public class ServiceRequestContext {
 	public Gson getGson() {
 		return gson;
 	}
-	
-	public void getHeader(String key) {
-		servletRequest.getHeader(key);
+
+	public String getHeader(String key) {
+		String ret = servletRequest.getHeader(key);
+		if (extraHeader != null)
+			ret = extraHeader.get(key);
+		return ret;
 	}
 }

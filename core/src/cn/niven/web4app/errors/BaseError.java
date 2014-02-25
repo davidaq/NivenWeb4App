@@ -20,5 +20,4 @@ public class BaseError extends RuntimeException {
 	public String getMessage() {
 		return message;
 	}
-
 }

@@ -89,7 +89,7 @@ public class ServiceHandler extends AbstractHandler {
 			ReturnVO ret = new ReturnVO();
 			ActionItem item = serviceMap.get(target);
 			try {
-				ret.result = item.invoke(request);
+				ret.result = item.invoke(ctx);
 			} catch (BaseError e) {
 				ret.error = e.getCode();
 				ret.message = e.getMessage();
