@@ -31,16 +31,7 @@ public class ServiceHandler extends AbstractHandler {
 		for (Class<?> component : reflect
 				.getTypesAnnotatedWith(Component.class)) {
 			Component c = component.getAnnotation(Component.class);
-			if (!c.value().isAssignableFrom(component)) {
-				throw new RuntimeException(
-						"Component can't be assigned to target class");
-			}
-			String key;
-			if (c.value().equals(Object.class)) {
-				key = component.getName();
-			} else {
-				key = c.value().getName();
-			}
+			String key = c.value();
 			if (componentMap.containsKey(key)) {
 				System.err.println("Warning: Multiple components assigned to "
 						+ key);
@@ -50,7 +41,6 @@ public class ServiceHandler extends AbstractHandler {
 		}
 
 		System.out.println("Scan for services");
-		HashMap<String, ActionItem> serviceMap = new HashMap<>();
 		for (Class<?> service : reflect.getTypesAnnotatedWith(Service.class)) {
 			if (service.isInterface() || service.isAnnotation()) {
 				continue;
@@ -85,6 +75,7 @@ public class ServiceHandler extends AbstractHandler {
 			long threadId = Thread.currentThread().getId();
 			ServiceRequestContext ctx = new ServiceRequestContext();
 			ServiceRequestContext.contextMap.put(threadId, ctx);
+			ctx.servletRequest = request;
 
 			ReturnVO ret = new ReturnVO();
 			ActionItem item = serviceMap.get(target);

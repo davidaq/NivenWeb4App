@@ -17,7 +17,13 @@ public class ServiceRequestContext {
 	HttpServletRequest servletRequest;
 	Gson gson = new Gson();
 
-	HashMap<String, String> extraHeader;
+	private HashMap<String, String> extraHeader;
+
+	public void putExtraHeader(String key, String value) {
+		if (extraHeader == null)
+			extraHeader = new HashMap<>();
+		extraHeader.put(key, value);
+	}
 
 	public HttpServletRequest getServletRequest() {
 		return servletRequest;

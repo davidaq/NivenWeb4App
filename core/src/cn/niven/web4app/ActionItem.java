@@ -1,117 +1,132 @@
 package cn.niven.web4app;
 
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
 
-import cn.niven.web4app.annotation.Component;
-import cn.niven.web4app.errors.ArgumentMismatchError;
-
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import cn.niven.web4app.annotation.Action;
+import cn.niven.web4app.errors.RequiredFieldError;
+import cn.niven.web4app.value.StringValue;
+import cn.niven.web4app.value.Value;
 
 public final class ActionItem {
 	Object service;
 	Method action;
 	String path;
 
-	private int blank[];
-	private Object components[];
+	private String parameterKeys[];
+	private String defaults[];
+	private HashMap<String, Object> componentMap;
 
 	public ActionItem(Object service, Method action, String path,
 			HashMap<String, Object> componentMap) {
 		this.service = service;
 		this.action = action;
 		this.path = path;
+		this.componentMap = componentMap;
 
-		Annotation[][] annotations = action.getParameterAnnotations();
-		Class<?> argTypes[] = action.getParameterTypes();
-		components = new Object[argTypes.length];
-		int i = 0;
-		LinkedList<Integer> blankList = new LinkedList<>();
-		for (Annotation[] notes : annotations) {
-			for (Annotation note : notes) {
-				if (note.annotationType().equals(Component.class)) {
-					components[i] = componentMap.get(argTypes[i].getName());
-					if (null == components[i]) {
-						throw new RuntimeException("Missing component "
-								+ argTypes[i].getName());
-					}
-				}
-			}
-			if (components[i] != null) {
-				blankList.add(i);
-			}
-			i++;
+		Action actionNotes = action.getAnnotation(Action.class);
+		String[] paramNotes = actionNotes.value();
+		if (paramNotes.length != action.getParameterTypes().length) {
+			throw new RuntimeException("Action parameter annotation mismatch: "
+					+ service.getClass().getCanonicalName() + "("
+					+ action.getName() + ")");
 		}
-		if (!blankList.isEmpty()) {
-			blank = new int[blankList.size()];
-			i = 0;
-			for (int n : blankList) {
-				blank[i++] = n;
+		parameterKeys = new String[paramNotes.length];
+		defaults = new String[parameterKeys.length];
+		for (int i = 0; i < paramNotes.length; i++) {
+			String note = paramNotes[i];
+			int p = note.indexOf('=');
+			if (p > -1) {
+				parameterKeys[i] = note.substring(0, p);
+				if (p + 1 < note.length()) {
+					defaults[i] = note.substring(p + 1);
+				} else {
+					defaults[i] = "";
+				}
+			} else {
+				parameterKeys[i] = note;
+			}
+			if (parameterKeys[i] == null || parameterKeys[i].length() < 1) {
+				throw new RuntimeException(
+						"Parameter key should not be empty: "
+								+ service.getClass().getCanonicalName() + "("
+								+ action.getName() + ")");
+			}
+		}
+	}
+
+	public void jsonRequest(ServiceRequestContext ctx,
+			HashMap<String, Value> params) throws Exception {
+		StringBuilder json = new StringBuilder();
+		InputStream in = ctx.getServletRequest().getInputStream();
+		byte buff[] = new byte[2000];
+		int len;
+		while (0 < (len = in.read(buff))) {
+			json.append(new String(buff, 0, len, "utf-8"));
+		}
+//		JsonElement element = ctx.gson.toJsonTree(json.toString());
+	}
+
+	public void plainRequest(ServiceRequestContext ctx,
+			HashMap<String, Value> params) throws Exception {
+		for (Map.Entry<String, String[]> param : ctx.getServletRequest()
+				.getParameterMap().entrySet()) {
+			if (param.getValue().length > 0) {
+				String key = param.getKey();
+				String val = param.getValue()[0];
+				if (key.charAt(0) == '@') {
+					ctx.putExtraHeader(key.substring(1), val);
+				} else {
+					params.put(key, new StringValue(val));
+				}
 			}
 		}
 	}
 
 	public Object invoke(ServiceRequestContext ctx) throws Exception {
+		String reqType = ctx.getServletRequest().getHeader("reqtype");
+		HashMap<String, Value> params = new HashMap<>();
+		if ("json".equals(reqType)) {
+			jsonRequest(ctx, params);
+		} else if ("plist".equals(reqType)) {
+
+		} else if (null == reqType) {
+			plainRequest(ctx, params);
+		}
 		Class<?> argTypes[] = action.getParameterTypes();
 		Object args[] = new Object[argTypes.length];
-		for (int i = 0; i < argTypes.length; i++) {
-			if (components[i] != null) {
-				args[i] = components[i];
-			} else {
-			}
-		}
-		if (blank != null) {
-			String reqType = ctx.getServletRequest().getHeader("reqtype");
-			if (blank.length == 1
-					&& argTypes[blank[0]].isAssignableFrom(InputStream.class)) {
-				args[blank[0]] = ctx.getServletRequest().getInputStream();
-			} else if ("json".equals(reqType)) {
-				Gson gson = ctx.gson;
-				JsonElement element = gson.toJsonTree(new InputStreamReader(ctx
-						.getServletRequest().getInputStream()));
-				if (element.isJsonObject()) {
-					JsonObject inObj = element.getAsJsonObject();
-					if (inObj.has("_header")) {
-						JsonObject inHeader = inObj.get("_header")
-								.getAsJsonObject();
-						ctx.extraHeader = new HashMap<>();
-						for (Map.Entry<String, JsonElement> entry : inHeader
-								.entrySet()) {
-							ctx.extraHeader.put(entry.getKey(), entry
-									.getValue().getAsString());
+		int i = 0;
+		for (String key : parameterKeys) {
+			if (key.length() > 0) {
+				switch (key.charAt(0)) {
+				case '#':
+					args[i] = componentMap.get(key.substring(1));
+					break;
+				case '@':
+					args[i] = new StringValue(ctx.getHeader(key.substring(1)))
+							.getValueAsType(argTypes[i]);
+					break;
+				default:
+					Value val = params.get(key);
+					Object argVal = null;
+					if (val != null) {
+						argVal = val.getValueAsType(argTypes[i]);
+						if (argVal == null) {
+							throw new RequiredFieldError(key);
 						}
+					} else if (defaults[i] != null) {
+						argVal = new StringValue(defaults[i])
+								.getValueAsType(argTypes[i]);
+					} else {
+						throw new RequiredFieldError(key);
 					}
-					if (inObj.has("_body"))
-						element = inObj.get("_body");
-					else
-						element = null;
+					args[i] = argVal;
+					break;
 				}
-				if (element != null) {
-					if (element.isJsonPrimitive()) {
-						args[blank[0]] = gson.fromJson(element,
-								argTypes[blank[0]]);
-					} else if (element.isJsonArray()) {
-						int i = 0;
-						for (JsonElement item : element.getAsJsonArray()) {
-							args[blank[i]] = gson.fromJson(item,
-									argTypes[blank[i]]);
-						}
-					}
-				}
-			} else if ("plist".equals(reqType)) {
-
-			} else if (null == reqType) {
-
-			} else {
-				throw new ArgumentMismatchError();
 			}
+			i++;
 		}
 		return action.invoke(service, args);
 	}
