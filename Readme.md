@@ -1,4 +1,5 @@
-===== Niven Web for App =====
+Niven Web for App
+=================
 
 Writing the HTTP part for an app that uses a webservice is absolutely painful.
 
