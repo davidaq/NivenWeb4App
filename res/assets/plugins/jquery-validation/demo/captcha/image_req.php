@@ -1,0 +1,1 @@
+<a href="index.php" onclick="refreshimg(); return false;" title="Click to refresh image"><img src="images/image.jpg?1393578705" width="132" height="46" alt="Captcha image" /></a>
